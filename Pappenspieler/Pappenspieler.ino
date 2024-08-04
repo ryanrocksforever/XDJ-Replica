@@ -1,5 +1,35 @@
 #include <ResponsiveAnalogRead.h>
 #include <Bounce.h>
+#include <CD74HC4067.h>
+
+// set up multiplexers
+CD74HC4067 mux0(2, 3, 4, 5);  // ANALOG create a new CD74HC4067 object with its four control pins
+const int mux0Common = 14; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux1(6,7,8,9);  //ANALOG create a new CD74HC4067 object with its four control pins
+const int mux1Common = 15; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux2(10,11,12,13);  // create a new CD74HC4067 object with its four control pins
+const int mux2Common = 34; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux3(16,17,18,19);  // create a new CD74HC4067 object with its four control pins
+const int mux3Common = 35; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux4(20,21,22,23);  // create a new CD74HC4067 object with its four control pins
+const int mux4Common = 36; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux5(24,25,26,27);  // create a new CD74HC4067 object with its four control pins
+const int mux5common = 37; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux6(28,29,30,31);  // create a new CD74HC4067 object with its four control pins
+const int mux6Common = 38; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux7(32,33,-1,-1);  // create a new CD74HC4067 object with its four control pins
+const int mux7Common = 39; // select a pin to share with the 16 channels of the CD74HC4067
+
+/*
+template for control generation
+
+header decleration
+
+ResponsiveAnalogRead "control_short_name"(MUX#SigPin, true);
+
+
+
+*/
 ResponsiveAnalogRead crossfader(A9, true);
 ResponsiveAnalogRead leftVolume(A8, true);
 ResponsiveAnalogRead rightVolume(A7, true);
@@ -128,12 +158,10 @@ void OnControlChange(byte channel, byte control, byte value) {
 
 void loop() {
 
-  faders();
+//handle pots and encoders
+  pots();
 
-  potis();
-
-  effects();
-
+//handle buttons
   buttonsHandler();
 
   while (usbMIDI.read())
@@ -142,7 +170,7 @@ void loop() {
   }
 }
 
-void faders() {
+void pots() {
   crossfader.update();
   if (crossfader.hasChanged()) {
     midiSend(24, map(crossfader.getValue(), 1023, 0, 0, 127));
@@ -159,51 +187,40 @@ void faders() {
   }
 }
 
-void potis() {
-  leftFilter.update();
-  if (leftFilter.hasChanged()) {
-    midiSend(27, map(leftFilter.getValue(), 0, 1023, 0, 127));
-  }
 
-  rightFilter.update();
-  if (rightFilter.hasChanged()) {
-    midiSend(28, map(rightFilter.getValue(), 0, 1023, 0, 127));
-  }
-}
+// void effects() {
+//   int leftEffect1 = map(analogRead(A4), 0, 1023, 0, 1);
+//   if (leftEffect1 != values[0]) {
+//     values[0] = leftEffect1;
+//     digitalWrite(13, HIGH);
+//     if (leftEffect1 == 1) {
+//       usbMIDI.sendNoteOn(29, 127, 1);
+//       delayMicroseconds(100);
+//       usbMIDI.sendNoteOff(29, 0, 1);
+//     } else {
+//       usbMIDI.sendNoteOn(30, 127, 1);
+//       delayMicroseconds(100);
+//       usbMIDI.sendNoteOff(30, 0, 1);
+//     }
+//     digitalWrite(13, LOW);
+//   }
 
-void effects() {
-  int leftEffect1 = map(analogRead(A4), 0, 1023, 0, 1);
-  if (leftEffect1 != values[0]) {
-    values[0] = leftEffect1;
-    digitalWrite(13, HIGH);
-    if (leftEffect1 == 1) {
-      usbMIDI.sendNoteOn(29, 127, 1);
-      delayMicroseconds(100);
-      usbMIDI.sendNoteOff(29, 0, 1);
-    } else {
-      usbMIDI.sendNoteOn(30, 127, 1);
-      delayMicroseconds(100);
-      usbMIDI.sendNoteOff(30, 0, 1);
-    }
-    digitalWrite(13, LOW);
-  }
-
-  int rightEffect1 = map(analogRead(A3), 0, 1023, 0, 1);
-  if (rightEffect1 != values[1]) {
-    values[1] = rightEffect1;
-    digitalWrite(13, HIGH);
-    if (rightEffect1 == 1) {
-      usbMIDI.sendNoteOn(31, 127, 1);
-      delayMicroseconds(1);
-      usbMIDI.sendNoteOff(31, 0, 1);
-    } else {
-      usbMIDI.sendNoteOn(32, 127, 1);
-      delayMicroseconds(1);
-      usbMIDI.sendNoteOff(32, 0, 1);
-    }
-    digitalWrite(13, LOW);
-  }
-}
+//   int rightEffect1 = map(analogRead(A3), 0, 1023, 0, 1);
+//   if (rightEffect1 != values[1]) {
+//     values[1] = rightEffect1;
+//     digitalWrite(13, HIGH);
+//     if (rightEffect1 == 1) {
+//       usbMIDI.sendNoteOn(31, 127, 1);
+//       delayMicroseconds(1);
+//       usbMIDI.sendNoteOff(31, 0, 1);
+//     } else {
+//       usbMIDI.sendNoteOn(32, 127, 1);
+//       delayMicroseconds(1);
+//       usbMIDI.sendNoteOff(32, 0, 1);
+//     }
+//     digitalWrite(13, LOW);
+//   }
+// }
 
 void buttonsHandler() {
   for (int i = 0; i < NUM_OF_BUTTONS + 1; i++)
@@ -211,7 +228,7 @@ void buttonsHandler() {
     buttons[i].update();
   }
 
-  for (int i = 0; i < NUM_OF_BUTTONS; i++)
+  for (int i = 0; i < NUM_OF_BUTTONS; i++
   {
     if (buttons[i].fallingEdge())
     {
