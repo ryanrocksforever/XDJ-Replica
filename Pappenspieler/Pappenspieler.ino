@@ -30,6 +30,13 @@ ResponsiveAnalogRead "control_short_name"(MUX#SigPin, true);
 
 
 */
+
+
+const int totalMIDIControls = 109
+ResponsiveAnalogRead potsRead[totalMIDIControls];
+for(int i = 0; i < totalMIDIControls; i++){
+  potsRead[i] = ResponsiveAnalogRead()
+}
 ResponsiveAnalogRead crossfader(A9, true);
 ResponsiveAnalogRead leftVolume(A8, true);
 ResponsiveAnalogRead rightVolume(A7, true);
