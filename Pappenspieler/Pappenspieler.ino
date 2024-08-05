@@ -242,13 +242,11 @@ void pots() {
 
       case REncoder::Event::REncoder_Event_Rotate_CCW: 
         Serial.println("Rotation CCW to: " 
-          + String(rEncoder.getPosition()));
+          + String(encoders[i].getPosition()));
+          midiSend(i+21, map(127-encoders[i].getPosition(), 127, 0, 0, 127));
       break;
     }
 
-    potsRead[i].update();
-    if (potsRead[i].hasChanged()) {
-    midiSend(i, map(potsRead[i].getValue(), 1023, 0, 0, 127));
   }
   }
 
@@ -308,20 +306,20 @@ void pots() {
 // }
 
 void buttonsHandler() {
-  for (int i = 0; i < NUM_OF_BUTTONS + 1; i++)
+  for (int i = 0; i < totalButtons; i++)
   {
     buttons[i].update();
   }
 
-  for (int i = 0; i < NUM_OF_BUTTONS; i++
+  for (int i = 0; i < totalButtons; i++)
   {
     if (buttons[i].fallingEdge())
     {
-      usbMIDI.sendNoteOn (MIDI_NOTE_NUMS[i], 127, 1);
+      usbMIDI.sendNoteOn (i+32, 127, 1);
     }
     else if (buttons[i].risingEdge())
     {
-      usbMIDI.sendNoteOff (MIDI_NOTE_NUMS[i], 0, 1);
+      usbMIDI.sendNoteOff (i+32, 0, 1);
     }
   }
 }
