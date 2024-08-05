@@ -7,8 +7,8 @@
 
 
 
-
-REncoder rEncoder(3 /* CLK Pin*/, 4 /* DT Pin */);
+/*
+//REncoder rEncoder(3 /* CLK Pin, 4 /* DT Pin );
 
 void setup() {
   Serial.begin(115200);
@@ -32,6 +32,8 @@ void loop() {
     break;
   }
 }
+
+*/
 
 
 
@@ -71,10 +73,12 @@ const int totalPots = 27;
 const int totalEncoders = 6;
 const int totalButtons = 77;
 const int totalMIDIControls = 109;
+const int totalControlsWEmpty = 116;
 ResponsiveAnalogRead potsRead[totalMIDIControls];
 Bounce buttons[totalButtons]; 
 REncoder encoders[totalEncoders];
-for(int i = 0; i < totalMIDIControls; i++){
+int encoderPos[totalEncoders] = {0,0,0,0,0,0};
+for(int i = 0; i < totalControlsWEmpty; i++){
   if(i < 16){
     //pots
   potsRead[i] = ResponsiveAnalogRead(14, true);  //mux0
@@ -101,6 +105,7 @@ for(int i = 0; i < totalMIDIControls; i++){
 } else {
 //do nothing
 }
+}
 // ResponsiveAnalogRead crossfader(A9, true);
 // ResponsiveAnalogRead leftVolume(A8, true);
 // ResponsiveAnalogRead rightVolume(A7, true);
@@ -112,33 +117,20 @@ int values[21];
 
 
 void setup() {
-  pinMode(13, OUTPUT);
-  pinMode(0, INPUT_PULLUP);
-  pinMode(1, INPUT_PULLUP);
-  pinMode(2, INPUT_PULLUP);
-  pinMode(3, INPUT_PULLUP);
-  pinMode(4, INPUT_PULLUP);
-  pinMode(5, INPUT_PULLUP);
+  pinMode(14, INPUT);
+  pinMode(15, INPUT);
+  pinMode(34, INPUT);
+  pinMode(35, INPUT);
+  pinMode(36, INPUT);
+  pinMode(37, INPUT);
+  pinMode(38, INPUT);
+  pinMode(39, INPUT);
+  
 
-  pinMode(6, OUTPUT);
-  pinMode(7, OUTPUT);
-
-  pinMode(8, OUTPUT);
-  pinMode(9, OUTPUT);
-
-  pinMode(10, OUTPUT);
-  pinMode(11, OUTPUT);
-
-  pinMode(36, OUTPUT);
-  pinMode(35, OUTPUT);
-
-  leftFilter.setActivityThreshold(15.0f);
-  usbMIDI.setHandleNoteOff(OnNoteOff);
-  usbMIDI.setHandleNoteOn(OnNoteOn);
+  //leftFilter.setActivityThreshold(15.0f);
+  //usbMIDI.setHandleNoteOff(OnNoteOff);
+  //usbMIDI.setHandleNoteOn(OnNoteOn);
   usbMIDI.setHandleControlChange(OnControlChange);
-  digitalWrite(13, HIGH);
-  delay(100);
-  digitalWrite(13, LOW);
   delay(100);
 }
 
@@ -230,6 +222,38 @@ void loop() {
 }
 
 void pots() {
+  //potentiometers
+  for(int i = 0; i < totalPots; i++){
+    potsRead[i].update();
+    if (potsRead[i].hasChanged()) {
+    midiSend(i, map(potsRead[i].getValue(), 1023, 0, 0, 127));
+  }
+  }
+//encoders
+  for(int i = 0; i < totalEncoders; i++){
+    REncoder::Event encoderEvent = encoders[i].reState();
+
+    switch (encoderEvent) {
+      case REncoder::Event::REncoder_Event_Rotate_CW: 
+        Serial.println("Rotation CW to: " 
+          + String(encoders[i].getPosition()));
+          midiSend(i+21, map(encoders[i].getPosition(), 127, 0, 0, 127));
+      break;
+
+      case REncoder::Event::REncoder_Event_Rotate_CCW: 
+        Serial.println("Rotation CCW to: " 
+          + String(rEncoder.getPosition()));
+      break;
+    }
+
+    potsRead[i].update();
+    if (potsRead[i].hasChanged()) {
+    midiSend(i, map(potsRead[i].getValue(), 1023, 0, 0, 127));
+  }
+  }
+
+
+  /*
   crossfader.update();
   if (crossfader.hasChanged()) {
     midiSend(24, map(crossfader.getValue(), 1023, 0, 0, 127));
@@ -244,6 +268,8 @@ void pots() {
   if (rightVolume.hasChanged()) {
     midiSend(25, map(rightVolume.getValue(), 1023, 0, 0, 127));
   }
+  */
+  
 }
 
 
