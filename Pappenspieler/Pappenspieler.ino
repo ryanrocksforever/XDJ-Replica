@@ -1,3 +1,6 @@
+//XDJ-rx3 style controller, midi integration made to be used with mixxx dj running on a raspberry pi
+//TODO integrate mux switiching, confirm midi functionality
+
 #include <ResponsiveAnalogRead.h>
 #include <Bounce.h>
 #include <CD74HC4067.h>
@@ -54,7 +57,7 @@ CD74HC4067 mux6(28,29,30,31);  // create a new CD74HC4067 object with its four c
 const int mux6Common = 38; // select a pin to share with the 16 channels of the CD74HC4067
 CD74HC4067 mux7(32,33,-1,-1);  // create a new CD74HC4067 object with its four control pins
 const int mux7Common = 39; // select a pin to share with the 16 channels of the CD74HC4067
-
+CD74HC4067 muxArray[8] = {mux0, mux1, mux2, mux3, mux4, mux5, mux6, mux7};
 /*
 template for control generation
 
@@ -78,6 +81,8 @@ ResponsiveAnalogRead potsRead[totalMIDIControls];
 Bounce buttons[totalButtons]; 
 REncoder encoders[totalEncoders];
 int encoderPos[totalEncoders] = {0,0,0,0,0,0};
+
+//Assign controls to their grouping
 for(int i = 0; i < totalControlsWEmpty; i++){
   if(i < 16){
     //pots
@@ -220,10 +225,26 @@ void loop() {
 
   }
 }
+//switch muxs to correct pin
+void switchToPin(int pin){
+  int muxNum = pin/16;
+  muxArray[muxNum].channel(pin%16);
 
+}
+//special switch for the two pins
+void switchToEncoder(int encoder){
+  int muxNum = p;
+  muxArray[1].channel(5+encoder);
+  if(encoder<=1){
+    muxArray[6].channel(14+encoder);
+  } else {
+    muxArray[7].channel(encoder-2);
+  }
+}
 void pots() {
   //potentiometers
   for(int i = 0; i < totalPots; i++){
+    switchToPin(i);
     potsRead[i].update();
     if (potsRead[i].hasChanged()) {
     midiSend(i, map(potsRead[i].getValue(), 1023, 0, 0, 127));
@@ -231,6 +252,7 @@ void pots() {
   }
 //encoders
   for(int i = 0; i < totalEncoders; i++){
+    switchToEncoder(i);
     REncoder::Event encoderEvent = encoders[i].reState();
 
     switch (encoderEvent) {
@@ -308,11 +330,8 @@ void pots() {
 void buttonsHandler() {
   for (int i = 0; i < totalButtons; i++)
   {
+    switchToPin(i+32)
     buttons[i].update();
-  }
-
-  for (int i = 0; i < totalButtons; i++)
-  {
     if (buttons[i].fallingEdge())
     {
       usbMIDI.sendNoteOn (i+32, 127, 1);
@@ -325,11 +344,11 @@ void buttonsHandler() {
 }
 
 void midiSend(int device, int value) {
-  digitalWrite(13, HIGH);
+  //digitalWrite(13, HIGH);
   Serial.println(device + " " + value);
   usbMIDI.sendControlChange(device, value, 1);
   delayMicroseconds(100);
-  digitalWrite(13, LOW);
+  //digitalWrite(13, LOW);
 }
 
 
