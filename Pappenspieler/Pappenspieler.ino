@@ -1,6 +1,39 @@
 #include <ResponsiveAnalogRead.h>
 #include <Bounce.h>
 #include <CD74HC4067.h>
+#include <REncoder.h>
+
+
+
+
+
+
+REncoder rEncoder(3 /* CLK Pin*/, 4 /* DT Pin */);
+
+void setup() {
+  Serial.begin(115200);
+
+  rEncoder.setMinEncoderPosition(-2);
+  rEncoder.setMaxEncoderPosition(3);
+}
+
+void loop() {
+  REncoder::Event encoderEvent = rEncoder.reState();
+
+  switch (encoderEvent) {
+    case REncoder::Event::REncoder_Event_Rotate_CW: 
+      Serial.println("Rotation CW to: " 
+        + String(rEncoder.getPosition()));
+    break;
+
+    case REncoder::Event::REncoder_Event_Rotate_CCW: 
+      Serial.println("Rotation CCW to: " 
+        + String(rEncoder.getPosition()));
+    break;
+  }
+}
+
+
 
 // set up multiplexers
 CD74HC4067 mux0(2, 3, 4, 5);  // ANALOG create a new CD74HC4067 object with its four control pins
@@ -32,32 +65,51 @@ ResponsiveAnalogRead "control_short_name"(MUX#SigPin, true);
 */
 
 
-const int totalMIDIControls = 109
+const int DEBOUNCE_TIME = 5;
+
+const int totalPots = 27;
+const int totalEncoders = 6;
+const int totalButtons = 77;
+const int totalMIDIControls = 109;
 ResponsiveAnalogRead potsRead[totalMIDIControls];
+Bounce buttons[totalButtons]; 
+REncoder encoders[totalEncoders];
 for(int i = 0; i < totalMIDIControls; i++){
-  potsRead[i] = ResponsiveAnalogRead()
+  if(i < 16){
+    //pots
+  potsRead[i] = ResponsiveAnalogRead(14, true);  //mux0
+  } else if(i < 21){
+    //pots
+  potsRead[i] = ResponsiveAnalogRead(15, true); //mux1
+} else if(i < 27){
+  //encoders
+  encoders[i-21] = rEncoder(15, 39);
+   //mux1 and mux 7 for clk and dt
+} else if(i < 48) {
+  buttons[i-27] = Bounce(34, DEBOUNCE_TIME);
+  potsRead[i] = ResponsiveAnalogRead(34, true); //mux2 Start buttons
+} else if(i < 64){
+  buttons[i-27] = Bounce(35, DEBOUNCE_TIME); //mux3
+} else if(i < 80){
+  buttons[i-27] = Bounce(36, DEBOUNCE_TIME);//mux4
+} else if(i < 96){
+  buttons[i-27] = Bounce(37, DEBOUNCE_TIME);//mux5
+} else if(i < 112){
+  buttons[i-27] = Bounce(38, DEBOUNCE_TIME);//mux6
+} else if(i < 117){
+  buttons[i-27] = Bounce(39, DEBOUNCE_TIME);//mux7
+} else {
+//do nothing
 }
-ResponsiveAnalogRead crossfader(A9, true);
-ResponsiveAnalogRead leftVolume(A8, true);
-ResponsiveAnalogRead rightVolume(A7, true);
-ResponsiveAnalogRead leftFilter(A6, true);
-ResponsiveAnalogRead rightFilter(A5, true);
-ResponsiveAnalogRead leftEffect1(A4, true);
+// ResponsiveAnalogRead crossfader(A9, true);
+// ResponsiveAnalogRead leftVolume(A8, true);
+// ResponsiveAnalogRead rightVolume(A7, true);
+// ResponsiveAnalogRead leftFilter(A6, true);
+// ResponsiveAnalogRead rightFilter(A5, true);
+// ResponsiveAnalogRead leftEffect1(A4, true);
 int values[21];
 
-//The number of push buttons
-const int NUM_OF_BUTTONS = 6;
-const int DEBOUNCE_TIME = 5;
-const int MIDI_NOTE_NUMS[NUM_OF_BUTTONS] = {33, 34, 35, 36, 37, 38};
-Bounce buttons[NUM_OF_BUTTONS] =
-{
-  Bounce (0, DEBOUNCE_TIME),
-  Bounce (1, DEBOUNCE_TIME),
-  Bounce (2, DEBOUNCE_TIME),
-  Bounce (3, DEBOUNCE_TIME),
-  Bounce (4, DEBOUNCE_TIME),
-  Bounce (5, DEBOUNCE_TIME)
-};
+
 
 void setup() {
   pinMode(13, OUTPUT);
