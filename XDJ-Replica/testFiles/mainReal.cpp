@@ -7,9 +7,9 @@
 #include <CD74HC4067.h>
 #include <REncoder.h>
 #include <MIDI.h>
+#include "MIDIcontroller.h"
 
-
-
+byte MIDIchannel = 5;
 
 /*
 //REncoder rEncoder(3 /* CLK Pin, 4 /* DT Pin );
@@ -75,14 +75,16 @@ const int DEBOUNCE_TIME = 5;
 
 const int totalPots = 27;
 const int totalEncoders = 6;
-const int totalButtons = 77;
+const int totalButtons = 100;
 const int totalMIDIControls = 109;
 const int totalControlsWEmpty = 116;
-ResponsiveAnalogRead potsRead[totalMIDIControls];
-Bounce buttons[totalButtons]; 
-REncoder* encoders[totalEncoders];
+MIDIpot potsRead[totalMIDIControls];
+MIDIswitch buttons[totalButtons]; 
+MIDIenc encoders[totalEncoders];
+bool jogEncoder[totalEncoders] = {false, false, false, false, false, false,};
 int encoderPos[totalEncoders] = {0,0,0,0,0,0};
 
+int lastTime = millis();
 
 // ResponsiveAnalogRead crossfader(A9, true);
 // ResponsiveAnalogRead leftVolume(A8, true);
@@ -105,7 +107,7 @@ void midiSend(int device, int value) {
   //digitalWrite(13, HIGH);
   Serial.println(device + " " + value);
   usbMIDI.sendControlChange(device, value, 1);
-  delayMicroseconds(100);
+  delayMicroseconds(5);
   //digitalWrite(13, LOW);
 }
 
@@ -114,45 +116,59 @@ void midiSend(int device, int value) {
 void switchToPin(int pin){
   int muxNum = pin/16;
   muxArray[muxNum].channel(pin%16);
+  delayMicroseconds(5);
 
 }
 //special switch for the two pins
 void switchToEncoder(int encoder){
   //int muxNum = ;
   muxArray[1].channel(5+encoder);
-  if(encoder<=1){
-    muxArray[6].channel(14+encoder);
-  } else {
-    muxArray[7].channel(encoder-2);
-  }
+
+  muxArray[7].channel(encoder);
+
+  
+  delayMicroseconds(5);
 }
 void pots() {
   //potentiometers
-  for(int i = 0; i < totalPots; i++){
+  for(int i = 0; i < 0; i++){
     switchToPin(i);
-    potsRead[i].update();
-    if (potsRead[i].hasChanged()) {
-    midiSend(i, map(potsRead[i].getValue(), 1023, 0, 0, 127));
-  }
+    potsRead[i].send();
+    
   }
 //encoders
-  for(int i = 0; i < totalEncoders; i++){
+  
+  for(int i = 0; i < 2; i++){
+    //totalEncoders
     switchToEncoder(i);
-    REncoder::Event encoderEvent = encoders[i]->reState();
+    delayMicroseconds(5);
+    encoders[i].send();
+    
+  //   if(jogEncoder[i]){
+  //     //SPEEEEED
+  //      encoders[i].send();
+  //     if((millis() - lastTime)> 1){
+  //         if(encoders[i].read() > 64){
+  //           encoders[i].write(encoders[i].read()-1);
+  //         } else if(encoders[i].read() < 64){
+  //           encoders[i].write(encoders[i].read()+1);
+  //         }
+  //         encoders[i].write(64);
+  //         lastTime = millis();
+  //     }
 
-    switch (encoderEvent) {
-      case REncoder::Event::REncoder_Event_Rotate_CW: 
-        Serial.println("Rotation CW to: " 
-          + String(encoders[i]->getPosition()));
-          midiSend(i+21, map(encoders[i]->getPosition(), 127, 0, 0, 127));
-      break;
+  // } else{
+  //   encoders[i].send();
+  //   // if((millis() - lastTime)> 1){
+        
+  //   //     encoders[i].write(64);
+  //   //     lastTime = millis();
+  //   // }
 
-      case REncoder::Event::REncoder_Event_Rotate_CCW: 
-        Serial.println("Rotation CCW to: " 
-          + String(encoders[i]->getPosition()));
-          midiSend(i+21, map(127-encoders[i]->getPosition(), 127, 0, 0, 127));
-      break;
-    }
+
+    
+  // }
+   
 
   }
   }
@@ -162,15 +178,8 @@ void buttonsHandler() {
   for (int i = 0; i < totalButtons; i++)
   {
     switchToPin(i+32);
-    buttons[i].update();
-    if (buttons[i].fallingEdge())
-    {
-      usbMIDI.sendNoteOn (i+32, 127, 1);
-    }
-    else if (buttons[i].risingEdge())
-    {
-      usbMIDI.sendNoteOff (i+32, 0, 1);
-    }
+    buttons[i].send();
+   
   }
 }
 
@@ -195,27 +204,31 @@ void setup() {
   for (int i = 0; i < totalControlsWEmpty; i++) {
       if(i < 16){
         //pots
-      potsRead[i] = ResponsiveAnalogRead(14, true);  //mux0
+      potsRead[i] = MIDIpot(14, i+40);  //mux0
       } else if(i < 21){
         //pots
-      potsRead[i] = ResponsiveAnalogRead(15, true); //mux1
+      potsRead[i] = MIDIpot(mux1Common, i+40); //mux1
     } else if(i < 27){
       //encoders
-      encoders[i-21] = new REncoder(15, 39);
+      encoders[i-21] =MIDIenc(mux1Common, mux7Common, i+40); // mux1
+      encoders[i-21].write(64);
       //mux1 and mux 7 for clk and dt
+    } else if(i < 32) {
+      buttons[i-27] = MIDIswitch(15, i+40);
+      //potsRead[i] = ResponsiveAnalogRead(34, true); //mux2 Start buttons
     } else if(i < 48) {
-      buttons[i-27] = Bounce(34, DEBOUNCE_TIME);
-      potsRead[i] = ResponsiveAnalogRead(34, true); //mux2 Start buttons
+      buttons[i-27] = MIDIswitch(34, i+40);
+      //potsRead[i] = ResponsiveAnalogRead(34, true); //mux2 Start buttons
     } else if(i < 64){
-      buttons[i-27] = Bounce(35, DEBOUNCE_TIME); //mux3
+      buttons[i-27] = MIDIswitch(35, i+40); //mux3
     } else if(i < 80){
-      buttons[i-27] = Bounce(36, DEBOUNCE_TIME);//mux4
+      buttons[i-27] = MIDIswitch(36, i+40);//mux4
     } else if(i < 96){
-      buttons[i-27] = Bounce(37, DEBOUNCE_TIME);//mux5
+      buttons[i-27] = MIDIswitch(37, i+40);//mux5
     } else if(i < 112){
-      buttons[i-27] = Bounce(38, DEBOUNCE_TIME);//mux6
+      buttons[i-27] = MIDIswitch(38, i+40);//mux6
     } else if(i < 117){
-      buttons[i-27] = Bounce(39, DEBOUNCE_TIME);//mux7
+      buttons[i-27] = MIDIswitch(39, i+40);//mux7
     } else {
     //do nothing
     }
@@ -224,14 +237,14 @@ void setup() {
 
 
 
-  pinMode(14, INPUT);
-  pinMode(15, INPUT);
-  pinMode(34, INPUT);
-  pinMode(35, INPUT);
-  pinMode(36, INPUT);
-  pinMode(37, INPUT);
-  pinMode(38, INPUT);
-  pinMode(39, INPUT);
+  pinMode(14, INPUT_PULLUP); //mux0
+  pinMode(15, INPUT_PULLUP); //mux1
+  pinMode(34, INPUT_PULLUP); //2
+  pinMode(35, INPUT_PULLUP); //3
+  pinMode(36, INPUT_PULLUP); //4
+  pinMode(37, INPUT_PULLUP); //5
+  pinMode(38, INPUT_PULLUP);// 6
+  pinMode(39, INPUT_PULLUP); //7
   
 
   //leftFilter.setActivityThreshold(15.0f);
@@ -241,69 +254,6 @@ void setup() {
   delay(100);
 }
 
-void OnNoteOn(byte channel, byte note, byte velocity) {
-  if (channel == 1) {
-    switch (note) {
-      case 1:
-        analogWrite(6, 50);
-        break;
-      case 2:
-        analogWrite(7, 3);
-        break;
-      case 3:
-        analogWrite(8, 50);
-        break;
-      case 4:
-        analogWrite(9, 50);
-        break;
-
-      case 11:
-        analogWrite(36, 50);
-        break;
-      case 12:
-        analogWrite(35, 3);
-        break;
-      case 13:
-        analogWrite(10, 50);
-        break;
-      case 14:
-        analogWrite(11, 3);
-        break;
-    }
-  }
-}
-
-void OnNoteOff(byte channel, byte note, byte velocity) {
-  if (channel == 1) {
-    switch (note) {
-      case 1:
-        analogWrite(6, 0);
-        break;
-      case 2:
-        analogWrite(7, 0);
-        break;
-      case 3:
-        analogWrite(8, 0);
-        break;
-      case 4:
-        analogWrite(9, 0);
-        break;
-
-      case 11:
-        analogWrite(36, 0);
-        break;
-      case 12:
-        analogWrite(35, 0);
-        break;
-      case 13:
-        analogWrite(10, 0);
-        break;
-      case 14:
-        analogWrite(11, 0);
-        break;
-    }
-  }
-}
 
 
 

@@ -7,9 +7,9 @@
 #include <CD74HC4067.h>
 #include <REncoder.h>
 #include <MIDI.h>
-#include "MIDIcontroller.h"
 
-byte MIDIchannel = 5;
+
+
 
 /*
 //REncoder rEncoder(3 /* CLK Pin, 4 /* DT Pin );
@@ -42,23 +42,23 @@ void loop() {
 
 
 // set up multiplexers
-CD74HC4067 mux0(10,11,12,13);  // ANALOG create a new CD74HC4067 object with its four control pins
-const int mux0Common = 34; // select a pin to share with the 16 channels of the CD74HC4067
-// CD74HC4067 mux1(6,7,8,9);  //ANALOG create a new CD74HC4067 object with its four control pins
-// const int mux1Common = 15; // select a pin to share with the 16 channels of the CD74HC4067
-// CD74HC4067 mux2(10,11,12,13);  // create a new CD74HC4067 object with its four control pins
-// const int mux2Common = 34; // select a pin to share with the 16 channels of the CD74HC4067
-// CD74HC4067 mux3(16,17,18,19);  // create a new CD74HC4067 object with its four control pins
-// const int mux3Common = 35; // select a pin to share with the 16 channels of the CD74HC4067
-// CD74HC4067 mux4(20,21,22,23);  // create a new CD74HC4067 object with its four control pins
-// const int mux4Common = 36; // select a pin to share with the 16 channels of the CD74HC4067
-// CD74HC4067 mux5(24,25,26,27);  // create a new CD74HC4067 object with its four control pins
-// const int mux5common = 37; // select a pin to share with the 16 channels of the CD74HC4067
-// CD74HC4067 mux6(28,29,30,31);  // create a new CD74HC4067 object with its four control pins
-// const int mux6Common = 38; // select a pin to share with the 16 channels of the CD74HC4067
-// CD74HC4067 mux7(32,33,-1,-1);  // create a new CD74HC4067 object with its four control pins
-// const int mux7Common = 39; // select a pin to share with the 16 channels of the CD74HC4067
-CD74HC4067 muxArray[1] = {mux0};
+CD74HC4067 mux0(2, 3, 4, 5);  // ANALOG create a new CD74HC4067 object with its four control pins
+const int mux0Common = 14; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux1(6,7,8,9);  //ANALOG create a new CD74HC4067 object with its four control pins
+const int mux1Common = 15; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux2(10,11,12,13);  // create a new CD74HC4067 object with its four control pins
+const int mux2Common = 34; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux3(16,17,18,19);  // create a new CD74HC4067 object with its four control pins
+const int mux3Common = 35; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux4(20,21,22,23);  // create a new CD74HC4067 object with its four control pins
+const int mux4Common = 36; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux5(24,25,26,27);  // create a new CD74HC4067 object with its four control pins
+const int mux5common = 37; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux6(28,29,30,31);  // create a new CD74HC4067 object with its four control pins
+const int mux6Common = 38; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 mux7(32,33,-1,-1);  // create a new CD74HC4067 object with its four control pins
+const int mux7Common = 39; // select a pin to share with the 16 channels of the CD74HC4067
+CD74HC4067 muxArray[8] = {mux0, mux1, mux2, mux3, mux4, mux5, mux6, mux7};
 /*
 template for control generation
 
@@ -78,13 +78,11 @@ const int totalEncoders = 6;
 const int totalButtons = 77;
 const int totalMIDIControls = 109;
 const int totalControlsWEmpty = 116;
-MIDIpot potsRead[totalMIDIControls];
-MIDIswitch buttons[totalButtons]; 
-//MIDIswitch buttonsTest[3] = {MIDIswitch(mux0Common, 22),MIDIswitch(mux0Common, 23),MIDIswitch(mux0Common, 24)}; 
-MIDIenc encoders[totalEncoders];
+ResponsiveAnalogRead potsRead[totalMIDIControls];
+Bounce buttons[totalButtons]; 
+REncoder* encoders[totalEncoders];
 int encoderPos[totalEncoders] = {0,0,0,0,0,0};
 
-int lastTime = millis();
 
 // ResponsiveAnalogRead crossfader(A9, true);
 // ResponsiveAnalogRead leftVolume(A8, true);
@@ -115,10 +113,9 @@ void midiSend(int device, int value) {
 //switch muxs to correct pin
 void switchToPin(int pin){
   int muxNum = pin/16;
-  muxArray[muxNum].channel(pin%16);                             
-  delayMicroseconds(5);
+  muxArray[muxNum].channel(pin%16);
 
-}                                                              
+}
 //special switch for the two pins
 void switchToEncoder(int encoder){
   //int muxNum = ;
@@ -128,23 +125,33 @@ void switchToEncoder(int encoder){
   } else {
     muxArray[7].channel(encoder-2);
   }
-  delayMicroseconds(5);
 }
 void pots() {
   //potentiometers
   for(int i = 0; i < totalPots; i++){
     switchToPin(i);
-    potsRead[i].send();
-    
+    potsRead[i].update();
+    if (potsRead[i].hasChanged()) {
+    midiSend(i, map(potsRead[i].getValue(), 1023, 0, 0, 127));
+  }
   }
 //encoders
   for(int i = 0; i < totalEncoders; i++){
     switchToEncoder(i);
-    encoders[i].send();
-    if((millis() - lastTime)> 1){
-        
-        encoders[i].write(64);
-        lastTime = millis();
+    REncoder::Event encoderEvent = encoders[i]->reState();
+
+    switch (encoderEvent) {
+      case REncoder::Event::REncoder_Event_Rotate_CW: 
+        Serial.println("Rotation CW to: " 
+          + String(encoders[i]->getPosition()));
+          midiSend(i+21, map(encoders[i]->getPosition(), 127, 0, 0, 127));
+      break;
+
+      case REncoder::Event::REncoder_Event_Rotate_CCW: 
+        Serial.println("Rotation CCW to: " 
+          + String(encoders[i]->getPosition()));
+          midiSend(i+21, map(127-encoders[i]->getPosition(), 127, 0, 0, 127));
+      break;
     }
 
   }
@@ -152,15 +159,18 @@ void pots() {
 
 
 void buttonsHandler() {
-  for (int i = 0; i < 16; i++)
+  for (int i = 0; i < totalButtons; i++)
   {
-    switchToPin(i);
-    
-    
-    buttons[i].send();
-    
-    
-   
+    switchToPin(i+32);
+    buttons[i].update();
+    if (buttons[i].fallingEdge())
+    {
+      usbMIDI.sendNoteOn (i+32, 127, 1);
+    }
+    else if (buttons[i].risingEdge())
+    {
+      usbMIDI.sendNoteOff (i+32, 0, 1);
+    }
   }
 }
 
@@ -182,22 +192,46 @@ void buttonsHandler() {
 void setup() {
 
   //Assign controls to their grouping
-  for (int i = 0; i < 16; i++) {
-    buttons[i] = MIDIswitch(mux0Common, i);
-    //buttons[i].setControlNumber(i);
+  for (int i = 0; i < totalControlsWEmpty; i++) {
+      if(i < 16){
+        //pots
+      potsRead[i] = ResponsiveAnalogRead(14, true);  //mux0
+      } else if(i < 21){
+        //pots
+      potsRead[i] = ResponsiveAnalogRead(15, true); //mux1
+    } else if(i < 27){
+      //encoders
+      encoders[i-21] = new REncoder(15, 39);
+      //mux1 and mux 7 for clk and dt
+    } else if(i < 48) {
+      buttons[i-27] = Bounce(34, DEBOUNCE_TIME);
+      potsRead[i] = ResponsiveAnalogRead(34, true); //mux2 Start buttons
+    } else if(i < 64){
+      buttons[i-27] = Bounce(35, DEBOUNCE_TIME); //mux3
+    } else if(i < 80){
+      buttons[i-27] = Bounce(36, DEBOUNCE_TIME);//mux4
+    } else if(i < 96){
+      buttons[i-27] = Bounce(37, DEBOUNCE_TIME);//mux5
+    } else if(i < 112){
+      buttons[i-27] = Bounce(38, DEBOUNCE_TIME);//mux6
+    } else if(i < 117){
+      buttons[i-27] = Bounce(39, DEBOUNCE_TIME);//mux7
+    } else {
+    //do nothing
+    }
   }
 
 
 
-  
-  pinMode(14, INPUT_PULLUP);
+
+  pinMode(14, INPUT);
   pinMode(15, INPUT);
-  pinMode(34, INPUT_PULLUP);
-  pinMode(35, INPUT_PULLUP);
-  pinMode(36, INPUT_PULLUP);
-  pinMode(37, INPUT_PULLUP);
-  pinMode(38, INPUT_PULLUP);
-  pinMode(39, INPUT_PULLUP);
+  pinMode(34, INPUT);
+  pinMode(35, INPUT);
+  pinMode(36, INPUT);
+  pinMode(37, INPUT);
+  pinMode(38, INPUT);
+  pinMode(39, INPUT);
   
 
   //leftFilter.setActivityThreshold(15.0f);
@@ -277,7 +311,7 @@ void OnNoteOff(byte channel, byte note, byte velocity) {
 void loop() {
 
 //handle pots and encoders
-  //pots();
+  pots();
 
 //handle buttons
   buttonsHandler();
@@ -347,4 +381,3 @@ void loop() {
 
 
 
- 
